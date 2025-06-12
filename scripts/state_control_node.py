@@ -8,31 +8,39 @@ class StateControlNode:
     def __init__(self):
         rospy.init_node('state_control_node')
 
+        # Define allowed states
+        self.allowed_states = ['Idle', 'Search', 'Social', 'Assess', 'Help']
+
         # Publisher for current state
         self.state_pub = rospy.Publisher('/competition_state', String, queue_size=10)
 
         # Internal state initialized to 'Idle'
         self.current_state = "Idle"
+        rospy.sleep(0.5)  # Short delay to ensure publisher is connected before first publish
         self.state_pub.publish(String(self.current_state))
         rospy.loginfo(f"[StateControl] Default state set to: {self.current_state}")
 
-        # Create the service for setting state
+        # Services
         self.set_state_srv = rospy.Service('/competition_state/set_state', SetState, self.handle_set_state)
+        self.get_state_srv = rospy.Service('/competition_state/get_state', GetState, self.handle_get_state)
 
-        self.service = rospy.Service('/competition_state/get_state', GetState, self.handle_get_state)
-        rospy.loginfo("StateServiceNode is ready.")
+        rospy.loginfo("StateControlNode is ready.")
         rospy.spin()
 
     def handle_get_state(self, req):
-        current = self.current_state if self.current_state else ""
-        return GetStateResponse(current_state=current)
+        return GetStateResponse(current_state=self.current_state)
 
     def handle_set_state(self, req):
         new_state = req.new_state.strip()
+
         if not new_state:
             return SetStateResponse(success=False, message="Empty state is invalid.")
 
-        rospy.loginfo(f"[StateControl] Received new state: {new_state}")
+        if new_state not in self.allowed_states:
+            allowed = ", ".join(self.allowed_states)
+            return SetStateResponse(success=False, message=f"Invalid state. Allowed states: {allowed}")
+
+        rospy.loginfo(f"[StateControl] Changing state to: {new_state}")
         self.current_state = new_state
         self.state_pub.publish(String(self.current_state))
         return SetStateResponse(success=True, message=f"State set to {new_state}")
