@@ -1,0 +1,4 @@
+# GetState.srv
+---
+string current_state
+
